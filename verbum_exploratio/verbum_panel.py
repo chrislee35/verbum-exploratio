@@ -46,31 +46,47 @@ class VerbumPanel(wx.Panel):
             style=wx.TE_MULTILINE | wx.TE_WORDWRAP, size=wx.Size(800, 600))
         font1 = wx.Font(14, wx.MODERN, wx.NORMAL, wx.NORMAL, False, 'Nimbus Roman')
         t.SetFont(font1)
-        t.AppendText(self.get_test())
         t.Bind(wx.EVT_LEFT_UP, self.mouse_btn_left_cb)
         t.Bind(wx.EVT_KEY_UP, self.keypress_handler)
         t.SetInsertionPoint(0)
+
         self.text = t
-
-        main_sizer.Add(self.text, 0, wx.ALL | wx.EXPAND, 5)
-        self.etymology = Etymology('English')
-        self.punctuation = string.punctuation + ' '
-        self.top_related_langs = self.etymology.most_common_related_langs(reltypes=['derived_from'], count=20)
-        self.update_highlighting()
-
-        key = wx.TextCtrl(self, style=wx.TE_MULTILINE, size=wx.Size(80, 600))
-        for i,l in enumerate(self.top_related_langs):
-            key.SetDefaultStyle(wx.TextAttr(self.COLORS_TAB20[i]))
-            key.AppendText(l+"\n")
-
-        key.SetEditable(False)
-        main_sizer.Add(key, 0, wx.ALL | wx.TOP, 5)
-
+        self.legend = wx.TextCtrl(self, style=wx.TE_MULTILINE, size=wx.Size(80, 600))
         self.info = wx.TextCtrl(self, style=wx.TE_MULTILINE, size=wx.Size(400, 600))
         self.info.SetEditable(False)
+
+        main_sizer.Add(self.text, 0, wx.ALL | wx.EXPAND, 5)
+        main_sizer.Add(self.legend, 0, wx.ALL | wx.TOP, 5)
         main_sizer.Add(self.info, 0, wx.ALL | wx.TOP, 5)
 
         self.SetSizer(main_sizer)
+
+        self.reltypes = ('derived_from',)
+        self.set_language('English')
+
+        self.set_text(self.get_test())
+
+    def set_language(self, lang: str):
+        self.language = lang
+        self.etymology = Etymology(lang)
+        self.punctuation = string.punctuation + ' '
+        self.top_related_langs = self.etymology.most_common_related_langs(reltypes=self.reltypes, count=20)
+        self.update_legend()
+        self.update_highlighting()
+
+    def set_reltypes(self, reltypes: list[str]):
+        self.reltypes = reltypes
+        self.top_related_langs = self.etymology.most_common_related_langs(reltypes=self.reltypes, count=20)
+        self.update_legend()
+        self.update_highlighting()
+
+    def update_legend(self):
+        self.legend.SetEditable(True)
+        self.legend.SetValue("")
+        for i,l in enumerate(self.top_related_langs):
+            self.legend.SetDefaultStyle(wx.TextAttr(self.COLORS_TAB20[i]))
+            self.legend.AppendText(l+"\n")
+        self.legend.SetEditable(False)
 
     def set_text(self, text: str):
         self.text.SetValue(text)
@@ -80,7 +96,7 @@ class VerbumPanel(wx.Panel):
         word, pos = self.get_word_at_caret()
         text = ""
         if self.etymology.has_word(word):
-            rels = self.etymology.get_relationships(word, reltypes=['derived_from'], langs=self.top_related_langs)
+            rels = self.etymology.get_relationships(word, reltypes=self.reltypes, langs=self.top_related_langs)
             for r in rels:
                 text += f"{r['type']} {r['lang']} {r['term']}\n"
         self.info.SetValue(text)
@@ -88,7 +104,8 @@ class VerbumPanel(wx.Panel):
         self.change_highlight(pos)
 
     def keypress_handler(self, event: wx.KeyEvent):
-        if event.GetKeyCode() == 13:
+        char = chr(event.GetKeyCode())
+        if char in self.punctuation + "\n":
             self.update_highlighting()
 
     def change_highlight(self, pos: tuple[int]):
@@ -116,7 +133,7 @@ class VerbumPanel(wx.Panel):
         if c > 0: start += 1
 
         c = caret + 1
-        while text[c] not in self.punctuation:
+        while c < len(text) and text[c] not in self.punctuation:
             word = word+text[c]
             c += 1
         end = c
@@ -143,11 +160,13 @@ Common butterwort is an insectivorous plant. Its leaves have glands that excrete
         # first remove all highlighting
         text = self.text.Value
         end = len(text)
-        self.text.SetStyle(0, end, wx.TextAttr(wx.WHITE))
+        off_white = wx.Colour(220, 220, 220)
+        self.text.SetStyle(0, end, wx.TextAttr(off_white))
         # now go through each word and see if it exists in the database and which root
         start = 0
         words = re.split(r"[\n \-\/]", text)
-        clean = re.compile('[^A-Za-z]')
+        clean = re.compile(r"[^\w]", re.U) # this should match all latin unicode as well as A-Z
+        # Diacritical marks are so cliché.
         for word in words:
             new_end = start + len(word)
             word = clean.sub('', word)
@@ -155,9 +174,9 @@ Common butterwort is an insectivorous plant. Its leaves have glands that excrete
             if self.etymology.has_word(word):
                 rels = self.etymology.get_relationships(word,
                     langs=self.top_related_langs,
-                    reltypes=['derived_from']
+                    reltypes=self.reltypes
                 )
-                colour = wx.WHITE
+                colour = off_white
                 found = False
                 for i,l in enumerate(self.top_related_langs):
                     if found: break

@@ -8,6 +8,16 @@ Created on Sat Jun 22 22:26:12 2024
 import pickle
 import gzip
 import os
+import glob
+
+def enumerate_lanaguages():
+    dn = os.path.dirname(__file__)
+    data_files = os.path.join(dn,"data","etymology-*.pckl.gz")
+    languages = []
+    for data_file in glob.glob(data_files):
+        lang = data_file.replace('.pckl.gz', '').split("-")[-1]
+        languages.append(lang)
+    return sorted(languages)
 
 class Etymology:
     DATA = {}
@@ -45,6 +55,8 @@ class Etymology:
         "unadapted_borrowing_from",
     ]
 
+    LANGUAGES = enumerate_lanaguages()
+
     def __init__(self, lang: str):
         self.load_lang(lang)
         self.language = lang
@@ -78,6 +90,8 @@ class Etymology:
         with gzip.open(data_file, 'r') as zfh:
             data = pickle.load(zfh)
             return data
+
+
 
 if __name__ == "__main__":
     e = Etymology('English')

@@ -8,6 +8,7 @@ Created on Fri Jun 21 23:34:29 2024
 import wx
 from .verbum_panel import VerbumPanel
 from .wikipedia import get_wikipedia_article
+from .etymology import Etymology
 
 class VerbumExploratio(wx.Frame):
     def __init__(self):
@@ -86,7 +87,53 @@ class VerbumExploratio(wx.Frame):
         dlg.Destroy()
 
     def configure_relationships(self, event):
-        pass
+        dlg = MultipleChoiceDialog(self,
+            message='Which term relationships do you want to use?',
+            caption="Word Relationship Preferences",
+            choices=Etymology.RELTYPES,
+            selected=self.panel.reltypes
+        )
+        if dlg.ShowModal() == wx.ID_OK:
+            reltypes = dlg.GetSelections()
+            if len(reltypes) > 0:
+                self.panel.set_reltypes(reltypes)
+        dlg.Destroy()
 
     def configure_language(self, event):
-        pass
+        dlg = wx.SingleChoiceDialog(self,
+            message='Which language is the document to be analyzed.',
+            caption='Language Picker',
+            choices=Etymology.LANGUAGES
+        )
+        idx = Etymology.LANGUAGES.index(self.panel.language)
+        dlg.SetSelection(idx)
+        if dlg.ShowModal() == wx.ID_OK:
+            language = dlg.GetStringSelection()
+            self.panel.set_language(language)
+        dlg.Destroy()
+
+class MultipleChoiceDialog(wx.Dialog):
+    def __init__(self, parent, message:str, caption:str, choices: list[str]=[],selected: list[str]=[]):
+        wx.Dialog.__init__(self, parent, -1)
+        self.SetTitle(caption)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        self.message = wx.StaticText(self, -1, message)
+        self.clb = wx.CheckListBox(self, -1, choices = choices)
+        self.chbox = wx.CheckBox(self, -1, 'Select all')
+        self.btns = self.CreateSeparatedButtonSizer(wx.OK | wx.CANCEL)
+        self.Bind(wx.EVT_CHECKBOX, self.EvtChBox, self.chbox)
+
+        sizer.Add(self.message, 0, wx.ALL | wx.EXPAND, 5)
+        sizer.Add(self.clb, 1, wx.ALL | wx.EXPAND, 5)
+        sizer.Add(self.chbox, 0, wx.ALL | wx.EXPAND, 5)
+        sizer.Add(self.btns, 0, wx.ALL | wx.EXPAND, 5)
+        self.SetSizer(sizer)
+        self.clb.SetCheckedStrings(selected)
+
+    def GetSelections(self):
+        return self.clb.GetCheckedStrings()
+
+    def EvtChBox(self, event):
+        state = self.chbox.IsChecked()
+        for i in range(self.clb.GetCount()):
+            self.clb.Check(i, state)
