@@ -69,7 +69,7 @@ class VerbumPanel(wx.Panel):
     def set_language(self, lang: str):
         self.language = lang
         self.etymology = Etymology(lang)
-        self.punctuation = string.punctuation + ' '
+        self.punctuation = string.punctuation + ' ' + '\n'
         self.top_related_langs = self.etymology.most_common_related_langs(reltypes=self.reltypes, count=20)
         self.update_legend()
         self.update_highlighting()
@@ -94,23 +94,24 @@ class VerbumPanel(wx.Panel):
 
     def mouse_btn_left_cb(self, event: wx.Event):
         word, pos = self.get_word_at_caret()
-        text = ""
         if self.etymology.has_word(word):
+            text = word+":\n"
             rels = self.etymology.get_relationships(word, reltypes=self.reltypes, langs=self.top_related_langs)
             for r in rels:
-                text += f"{r['type']} {r['lang']} {r['term']}\n"
-        self.info.SetValue(text)
-
-        self.change_highlight(pos)
+                text += f"  {r['type']} {r['lang']} {r['term']}\n"
+            text += "\n"
+            self.info.AppendText(text)
+            self.change_highlight(pos)
 
     def keypress_handler(self, event: wx.KeyEvent):
         char = chr(event.GetKeyCode())
-        if char in self.punctuation + "\n":
+        if event.GetKeyCode() == 13 or char in self.punctuation + "\n":
             self.update_highlighting()
 
     def change_highlight(self, pos: tuple[int]):
         if self.current_highlight:
             self.remove_highlight(self.current_highlight)
+
         self.current_highlight = pos
         self.add_highlight(pos)
 
@@ -138,7 +139,6 @@ class VerbumPanel(wx.Panel):
             c += 1
         end = c
         #if c < len(text) - 1: end -= 1
-
         return word, (start, end)
 
     def update_text_file(self, file_path: str):
@@ -166,10 +166,17 @@ Common butterwort is an insectivorous plant. Its leaves have glands that excrete
         start = 0
         words = re.split(r"[\n \-\/]", text)
         clean = re.compile(r"[^\w]", re.U) # this should match all latin unicode as well as A-Z
+        clean2 = re.compile(r"\d", re.U) # this should match all latin unicode as well as A-Z
         # Diacritical marks are so cliché.
         for word in words:
             new_end = start + len(word)
-            word = clean.sub('', word)
+            clean_word = clean.sub('', word)
+            clean_word = clean2.sub('', clean_word)
+            try:
+                offset = word.index(clean_word)
+                word = clean_word
+            except ValueError:
+                offset = 0
             end = start + len(word) # FIXME
             if self.etymology.has_word(word):
                 rels = self.etymology.get_relationships(word,
@@ -185,5 +192,5 @@ Common butterwort is an insectivorous plant. Its leaves have glands that excrete
                             colour = self.COLORS_TAB20[i]
                             found = True
                             break
-                self.text.SetStyle(start, end, wx.TextAttr(colour))
+                self.text.SetStyle(start+offset, end+offset, wx.TextAttr(colour))
             start = new_end + 1

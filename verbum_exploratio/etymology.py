@@ -69,9 +69,27 @@ class Etymology:
             Etymology.DATA[lang] = Etymology.load_data(lang)
 
     def has_word(self, word: str):
-        return word in self.words or word.lower() in self.words
+        return self.get_base_word(word) is not None
+
+    def get_base_word(self, word: str):
+        if word in self.words:
+            return word
+        if word.lower() in self.words:
+            return word.lower()
+        # maybe it's plural
+        if len(word) > 3 and word.endswith('s') and word[0:-1] in self.words:
+            return word[0:-1]
+        if len(word) > 3 and word.endswith('s') and word[0:-1].lower() in self.words:
+            return word[0:-1].lower()
+        # maybe it's really plural
+        if len(word) > 4 and word.endswith('es') and word[0:-2] in self.words:
+            return word[0:-2]
+        if len(word) > 4 and word.endswith('es') and word[0:-2].lower() in self.words:
+            return word[0:-2].lower()
+        return None
 
     def get_relationships(self, word: str, reltypes: list[str]=None, langs: list[str]=None):
+        word = self.get_base_word(word)
         rels = self.lang.get(word, self.lang.get(word.lower()))
         if reltypes:
             rels = [x for x in rels if x['type'] in reltypes]
