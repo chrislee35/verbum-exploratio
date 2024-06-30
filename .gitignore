@@ -1,0 +1,5 @@
+build
+dist
+.spyproject
+*.pyc
+__pycache__
