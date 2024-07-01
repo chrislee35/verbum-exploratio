@@ -105,6 +105,7 @@ class Etymology:
     def load_data(lang: str):
         dn = os.path.dirname(__file__)
         data_file = os.path.join(dn,"data",f"etymology-{lang}.pckl.gz")
+        if not os.path.exists(data_file): return {}
         with gzip.open(data_file, 'r') as zfh:
             data = pickle.load(zfh)
             return data

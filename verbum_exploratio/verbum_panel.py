@@ -46,7 +46,7 @@ class VerbumPanel(wx.Panel):
             style=wx.TE_MULTILINE | wx.TE_WORDWRAP, size=wx.Size(800, 600))
         font1 = wx.Font(14, wx.MODERN, wx.NORMAL, wx.NORMAL, False, 'Nimbus Roman')
         t.SetFont(font1)
-        t.Bind(wx.EVT_LEFT_UP, self.mouse_btn_left_cb)
+        t.Bind(wx.EVT_LEFT_UP, self.main_click_handler)
         t.Bind(wx.EVT_KEY_UP, self.keypress_handler)
         t.SetInsertionPoint(0)
 
@@ -54,6 +54,7 @@ class VerbumPanel(wx.Panel):
         self.legend = wx.TextCtrl(self, style=wx.TE_MULTILINE, size=wx.Size(80, 600))
         self.info = wx.TextCtrl(self, style=wx.TE_MULTILINE, size=wx.Size(400, 600))
         self.info.SetEditable(False)
+        self.info.Bind(wx.EVT_LEFT_UP, self.info_click_handler)
 
         main_sizer.Add(self.text, 0, wx.ALL | wx.EXPAND, 5)
         main_sizer.Add(self.legend, 0, wx.ALL | wx.TOP, 5)
@@ -61,10 +62,15 @@ class VerbumPanel(wx.Panel):
 
         self.SetSizer(main_sizer)
 
-        self.reltypes = ('derived_from',)
+        self.reltypes = Etymology.RELTYPES
         self.set_language('English')
 
         self.set_text(self.get_test())
+
+        self.timer = wx.Timer(self)
+        self.info_default_background_colour = self.info.GetBackgroundColour()
+        self.Bind(wx.EVT_TIMER, lambda x: self.info.SetBackgroundColour(self.info_default_background_colour))
+
 
     def set_language(self, lang: str):
         self.language = lang
@@ -92,16 +98,34 @@ class VerbumPanel(wx.Panel):
         self.text.SetValue(text)
         self.update_highlighting()
 
-    def mouse_btn_left_cb(self, event: wx.Event):
+    def main_click_handler(self, event: wx.Event):
         word, pos = self.get_word_at_caret()
-        if self.etymology.has_word(word):
+        if self.append_info_for_word(self.etymology, word):
+            self.change_highlight(pos)
+
+    def append_info_for_word(self, e: Etymology, word: str) -> bool:
+        if e.has_word(word):
             text = word+":\n"
-            rels = self.etymology.get_relationships(word, reltypes=self.reltypes, langs=self.top_related_langs)
+            rels = e.get_relationships(word, reltypes=self.reltypes, langs=self.top_related_langs)
             for r in rels:
-                text += f"  {r['type']} {r['lang']} {r['term']}\n"
+                text += f"  {r['type']}  {r['lang']}  {r['term']}\n"
             text += "\n"
             self.info.AppendText(text)
-            self.change_highlight(pos)
+            return True
+        return False
+
+    def info_click_handler(self, event: wx.Event):
+        i = self.info
+        pos = i.GetInsertionPoint()
+        xy = i.PositionToXY(pos)
+        line = i.GetLineText(xy[2])
+        if line.startswith('  '):
+            t, l, term = line.strip().split('  ', 2)
+            e = Etymology(l) # this will be fast once the language is cached
+            if not self.append_info_for_word(e, term):
+                i.SetBackgroundColour(wx.Colour(40,30,40))
+                self.timer.Start(300)
+
 
     def keypress_handler(self, event: wx.KeyEvent):
         char = chr(event.GetKeyCode())
