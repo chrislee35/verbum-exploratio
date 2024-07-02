@@ -9,6 +9,7 @@ import pickle
 import gzip
 import os
 import glob
+import spacy
 
 def enumerate_lanaguages():
     dn = os.path.dirname(__file__)
@@ -57,12 +58,49 @@ class Etymology:
 
     LANGUAGES = enumerate_lanaguages()
 
+    LEMMATIZERS = {
+        "Catalan": "ca_core_news_sm",
+        "Chinese": "zh_core_web_sm",
+        "Croatian": "hr_core_news_sm",
+        "Danish": "da_core_news_sm",
+        "Dutch": "nl_core_news_sm",
+        "English": "en_core_web_sm",
+        "Finnish": "fi_core_news_sm",
+        "French": "fr_core_news_sm",
+        "German": "de_core_news_sm",
+        "Greek": "el_core_news_sm",
+        "Italian": "it_core_news_sm",
+        "Japanese": "ja_core_news_sm",
+        "Korean": "ko_core_news_sm",
+        "Lithuanian": "lt_core_news_sm",
+        "Macedonian": "mk_core_news_sm",
+        "Multi-language": "xx_ent_wiki_sm",
+        "Norwegian Bokmål": "nb_core_news_sm",
+        "Polish": "pl_core_news_sm",
+        "Portuguese": "pt_core_news_sm",
+        "Romanian": "ro_core_news_sm",
+        "Russian": "ru_core_news_sm",
+        "Slovenian": "sl_core_news_sm",
+        "Spanish": "es_core_news_sm",
+        "Swedish": "sv_core_news_sm",
+        "Ukrainian": "uk_core_news_sm",
+    }
+
     def __init__(self, lang: str):
         self.load_lang(lang)
         self.language = lang
         # this is a shortcut for the primary language
         self.lang = self.DATA[lang]
         self.words = set(self.lang.keys())
+        self.lemmatizer = None
+        if lang in self.LEMMATIZERS:
+            model = self.LEMMATIZERS[lang]
+            try:
+                self.lemmatizer = spacy.load(model)
+            except:
+                spacy.cli.download(model)
+                self.lemmatizer = spacy.load(model)
+
 
     def load_lang(self, lang: str):
         if Etymology.DATA.get(lang) is None:
@@ -76,16 +114,15 @@ class Etymology:
             return word
         if word.lower() in self.words:
             return word.lower()
-        # maybe it's plural
-        if len(word) > 3 and word.endswith('s') and word[0:-1] in self.words:
-            return word[0:-1]
-        if len(word) > 3 and word.endswith('s') and word[0:-1].lower() in self.words:
-            return word[0:-1].lower()
-        # maybe it's really plural
-        if len(word) > 4 and word.endswith('es') and word[0:-2] in self.words:
-            return word[0:-2]
-        if len(word) > 4 and word.endswith('es') and word[0:-2].lower() in self.words:
-            return word[0:-2].lower()
+        if self.lemmatizer:
+            doc = self.lemmatizer(word)
+            for token in doc:
+                lemma = token.lemma_
+
+                if lemma in self.words:
+                    return lemma
+                if lemma.lower() in self.words:
+                    return lemma.lower()
         return None
 
     def get_relationships(self, word: str, reltypes: list[str]=None, langs: list[str]=None):
@@ -110,12 +147,14 @@ class Etymology:
             data = pickle.load(zfh)
             return data
 
-
-
 if __name__ == "__main__":
     e = Etymology('English')
-    print(e.has_word("Thesaurus"))
-    print(e.has_word("upsidedown"))
-    print(e.get_relationships("wall", reltypes=['derived_from']))
+    for word in ["Thesaurus", "upsidedown", "occasionally", "plants", "virii", "viruses", "aardwolves", "abaci"]:
+        print(word, e.get_base_word(word))
+    # print(e.has_word("Thesaurus"))
+    # print(e.has_word("upsidedown"))
+    # print(e.has_word("occasionally"))
+    # print(e.get_relationships("wall", reltypes=['derived_from']))
+    # print(e.get_relationships("occasionally"))
 
-    print(e.most_common_related_langs(reltypes=['derived_from']))
+    # print(e.most_common_related_langs(reltypes=['derived_from']))

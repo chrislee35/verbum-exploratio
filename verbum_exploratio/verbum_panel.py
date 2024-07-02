@@ -38,22 +38,29 @@ class VerbumPanel(wx.Panel):
 
     def __init__(self, parent):
         super().__init__(parent)
+        self.font_size = 14
         self.current_highlight = None
 
         main_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         t = rt.RichTextCtrl(self,
             style=wx.TE_MULTILINE | wx.TE_WORDWRAP, size=wx.Size(800, 600))
-        font1 = wx.Font(14, wx.MODERN, wx.NORMAL, wx.NORMAL, False, 'Nimbus Roman')
+        font1 = wx.Font(wx.FontInfo(self.font_size).Family(wx.FONTFAMILY_MODERN))
+        font2 = wx.Font(wx.FontInfo(self.font_size - 2).Family(wx.FONTFAMILY_MODERN))
         t.SetFont(font1)
+        t.SetBackgroundColour(wx.BLACK)
         t.Bind(wx.EVT_LEFT_UP, self.main_click_handler)
         t.Bind(wx.EVT_KEY_UP, self.keypress_handler)
         t.SetInsertionPoint(0)
 
+        self.default_font = font1
         self.text = t
         self.legend = wx.TextCtrl(self, style=wx.TE_MULTILINE, size=wx.Size(80, 600))
+        self.legend.SetBackgroundColour(wx.BLACK)
         self.info = wx.TextCtrl(self, style=wx.TE_MULTILINE, size=wx.Size(400, 600))
+        self.info.SetFont(font2)
         self.info.SetEditable(False)
+        self.info.SetBackgroundColour(wx.BLACK)
         self.info.Bind(wx.EVT_LEFT_UP, self.info_click_handler)
 
         main_sizer.Add(self.text, 0, wx.ALL | wx.EXPAND, 5)
@@ -71,6 +78,12 @@ class VerbumPanel(wx.Panel):
         self.info_default_background_colour = self.info.GetBackgroundColour()
         self.Bind(wx.EVT_TIMER, lambda x: self.info.SetBackgroundColour(self.info_default_background_colour))
 
+    def set_fontsize(self, points: int):
+        self.font_size = points
+        self.default_font = wx.Font(wx.FontInfo(self.font_size).Family(wx.FONTFAMILY_MODERN))
+        font2 = wx.Font(wx.FontInfo(self.font_size - 2).Family(wx.FONTFAMILY_MODERN))
+        self.info.SetFont(font2)
+        self.update_highlighting()
 
     def set_language(self, lang: str):
         self.language = lang
@@ -79,6 +92,15 @@ class VerbumPanel(wx.Panel):
         self.top_related_langs = self.etymology.most_common_related_langs(reltypes=self.reltypes, count=20)
         self.update_legend()
         self.update_highlighting()
+
+    def ignore_language(self, lang: str):
+        if lang in self.top_related_langs:
+            idx = self.top_related_langs.index(lang)
+            self.top_related_langs.remove(lang)
+            clr = self.COLORS_TAB20.pop(idx)
+            self.COLORS_TAB20.append(clr)
+            self.update_legend()
+            self.update_highlighting()
 
     def set_reltypes(self, reltypes: list[str]):
         self.reltypes = reltypes
@@ -105,8 +127,14 @@ class VerbumPanel(wx.Panel):
 
     def append_info_for_word(self, e: Etymology, word: str) -> bool:
         if e.has_word(word):
-            text = word+":\n"
-            rels = e.get_relationships(word, reltypes=self.reltypes, langs=self.top_related_langs)
+            base_word = e.get_base_word(word)
+            if word == base_word:
+                text = f"{word}:\n"
+            else:
+                text = f"{word} => {base_word}:\n"
+
+            top_related_langs = e.most_common_related_langs(reltypes=self.reltypes, count=20)
+            rels = e.get_relationships(word, reltypes=self.reltypes, langs=top_related_langs+[e.language])
             for r in rels:
                 text += f"  {r['type']}  {r['lang']}  {r['term']}\n"
             text += "\n"
@@ -192,6 +220,7 @@ Common butterwort is an insectivorous plant. Its leaves have glands that excrete
         clean = re.compile(r"[^\w]", re.U) # this should match all latin unicode as well as A-Z
         clean2 = re.compile(r"\d", re.U) # this should match all latin unicode as well as A-Z
         # Diacritical marks are so cliché.
+        unrecognized_font = wx.Font(wx.FontInfo(self.font_size).Family(wx.FONTFAMILY_TELETYPE))
         for word in words:
             new_end = start + len(word)
             clean_word = clean.sub('', word)
@@ -216,5 +245,8 @@ Common butterwort is an insectivorous plant. Its leaves have glands that excrete
                             colour = self.COLORS_TAB20[i]
                             found = True
                             break
-                self.text.SetStyle(start+offset, end+offset, wx.TextAttr(colour))
+                self.text.SetStyle(start+offset, end+offset, wx.TextAttr(colour, font=self.default_font))
+            else:
+                ta = wx.TextAttr(wx.Colour(64,64,64), font=unrecognized_font)
+                self.text.SetStyle(start+offset, end+offset, ta)
             start = new_end + 1

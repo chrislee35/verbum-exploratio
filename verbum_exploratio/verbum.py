@@ -15,6 +15,7 @@ class VerbumExploratio(wx.Frame):
         wx.Frame.__init__(self, parent=None, title='Verbum Exploratio')
         self.panel = VerbumPanel(self)
         self.create_menu()
+
         self.Show()
 
     def create_menu(self):
@@ -28,6 +29,9 @@ class VerbumExploratio(wx.Frame):
             wx.ID_ANY, 'Import from Wikipedia',
             'Import an article from Wikipedia'
         )
+        quit_menu_item = file_menu.Append(
+            wx.ID_ANY, 'E&xit\tCtrl+X', 'Exit the program',
+        )
         menu_bar.Append(file_menu, '&File')
         self.Bind(
             event=wx.EVT_MENU,
@@ -39,6 +43,11 @@ class VerbumExploratio(wx.Frame):
             handler=self.import_wikipedia,
             source=fetch_wikipedia_menu_item
         )
+        self.Bind(
+            event=wx.EVT_MENU,
+            handler=self.onExit,
+            source=quit_menu_item,
+        )
 
         settings_menu = wx.Menu()
         relationship_type_menu_item = settings_menu.Append(
@@ -49,6 +58,17 @@ class VerbumExploratio(wx.Frame):
             wx.ID_ANY, 'Language',
             'Select the language of the shown document'
         )
+        ignore_language_menu_item = settings_menu.Append(
+            wx.ID_ANY, 'Ignore Language',
+            'Select a language to ignore relationships with'
+        )
+        increase_font_size_menu_item = settings_menu.Append(
+            wx.ID_ANY, 'Increase Font Size\tCtrl++', 'Increases the font size'
+        )
+        decrease_font_size_menu_item = settings_menu.Append(
+            wx.ID_ANY, 'Decrease Font Size\tCtrl+-', 'Decreases the font size'
+        )
+
         menu_bar.Append(settings_menu, '&Preferences')
         self.Bind(
             event=wx.EVT_MENU,
@@ -59,6 +79,21 @@ class VerbumExploratio(wx.Frame):
             event=wx.EVT_MENU,
             handler=self.configure_language,
             source=language_menu_item
+        )
+        self.Bind(
+            event=wx.EVT_MENU,
+            handler=self.ignore_language,
+            source=ignore_language_menu_item
+        )
+        self.Bind(
+            event=wx.EVT_MENU,
+            handler=self.increase_font_size,
+            source=increase_font_size_menu_item
+        )
+        self.Bind(
+            event=wx.EVT_MENU,
+            handler=self.decrease_font_size,
+            source=decrease_font_size_menu_item
         )
 
         self.SetMenuBar(menu_bar)
@@ -111,6 +146,28 @@ class VerbumExploratio(wx.Frame):
             language = dlg.GetStringSelection()
             self.panel.set_language(language)
         dlg.Destroy()
+
+    def ignore_language(self, event):
+        dlg = wx.SingleChoiceDialog(self,
+            message='Which language should be ignored for highlighting relationships.',
+            caption='Ignored Language Picker',
+            choices=self.panel.top_related_langs
+        )
+        dlg.SetSelection(0)
+        if dlg.ShowModal() == wx.ID_OK:
+            language = dlg.GetStringSelection()
+            self.panel.ignore_language(language)
+        dlg.Destroy()
+
+    def increase_font_size(self, event):
+        self.panel.set_fontsize(self.panel.font_size + 2)
+
+    def decrease_font_size(self, event):
+        if self.panel.font_size > 4:
+            self.panel.set_fontsize(self.panel.font_size - 2)
+
+    def onExit(self, event):
+        self.Close()
 
 class MultipleChoiceDialog(wx.Dialog):
     def __init__(self, parent, message:str, caption:str, choices: list[str]=[],selected: list[str]=[]):
