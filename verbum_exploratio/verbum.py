@@ -15,6 +15,7 @@ class VerbumExploratio(wx.Frame):
         wx.Frame.__init__(self, parent=None, title='Verbum Exploratio')
         self.panel = VerbumPanel(self)
         self.create_menu()
+        self.panel.load_config()
 
         self.Show()
 
@@ -58,15 +59,22 @@ class VerbumExploratio(wx.Frame):
             wx.ID_ANY, 'Language',
             'Select the language of the shown document'
         )
-        ignore_language_menu_item = settings_menu.Append(
-            wx.ID_ANY, 'Ignore Language',
-            'Select a language to ignore relationships with'
+        related_language_menu_item = settings_menu.Append(
+            wx.ID_ANY, 'Pick Related Language',
+            'Select which language to explore relationships with'
+        )
+        custom_language_colour_menu_item = settings_menu.Append(
+            wx.ID_ANY, 'Set Language Colour',
+            'Customize the colour for related languages'
         )
         increase_font_size_menu_item = settings_menu.Append(
             wx.ID_ANY, 'Increase Font Size\tCtrl++', 'Increases the font size'
         )
         decrease_font_size_menu_item = settings_menu.Append(
             wx.ID_ANY, 'Decrease Font Size\tCtrl+-', 'Decreases the font size'
+        )
+        save_preferences_menu_item = settings_menu.Append(
+            wx.ID_ANY, 'Save preferences', 'Saves preferences to a file'
         )
 
         menu_bar.Append(settings_menu, '&Preferences')
@@ -82,8 +90,13 @@ class VerbumExploratio(wx.Frame):
         )
         self.Bind(
             event=wx.EVT_MENU,
-            handler=self.ignore_language,
-            source=ignore_language_menu_item
+            handler=self.pick_related_languages,
+            source=related_language_menu_item
+        )
+        self.Bind(
+            event=wx.EVT_MENU,
+            handler=self.set_custom_colour,
+            source=custom_language_colour_menu_item
         )
         self.Bind(
             event=wx.EVT_MENU,
@@ -94,6 +107,11 @@ class VerbumExploratio(wx.Frame):
             event=wx.EVT_MENU,
             handler=self.decrease_font_size,
             source=decrease_font_size_menu_item
+        )
+        self.Bind(
+            event=wx.EVT_MENU,
+            handler=self.save_config,
+            source=save_preferences_menu_item
         )
 
         self.SetMenuBar(menu_bar)
@@ -147,16 +165,39 @@ class VerbumExploratio(wx.Frame):
             self.panel.set_language(language)
         dlg.Destroy()
 
-    def ignore_language(self, event):
-        dlg = wx.SingleChoiceDialog(self,
-            message='Which language should be ignored for highlighting relationships.',
-            caption='Ignored Language Picker',
-            choices=self.panel.top_related_langs
+    def pick_related_languages(self, event):
+        top20 = self.panel.etymology.most_common_related_langs(reltypes=self.panel.reltypes, count=20)
+        top20 = sorted(top20)
+        dlg = MultipleChoiceDialog(self,
+            message='Which languages should be included for highlighting relationships.',
+            caption='Related Language Picker',
+            choices=top20,
+            selected=self.panel.top_related_langs
         )
-        dlg.SetSelection(0)
+
         if dlg.ShowModal() == wx.ID_OK:
-            language = dlg.GetStringSelection()
-            self.panel.ignore_language(language)
+            rellangs = dlg.GetSelections()
+            if len(rellangs) > 0:
+                self.panel.set_related_langs(rellangs)
+        dlg.Destroy()
+
+    def set_custom_colour(self, event):
+        top20 = self.panel.etymology.most_common_related_langs(reltypes=self.panel.reltypes, count=20)
+        top20 = sorted(top20)
+        dlg = wx.SingleChoiceDialog(self,
+            message='Which language would you like a custom colour for?',
+            caption='Custom Colour Language Picker',
+            choices=top20
+        )
+        if dlg.ShowModal() == wx.ID_OK:
+            lang = dlg.GetStringSelection()
+            colour = self.panel.get_language_colour(lang)
+            data = wx.ColourData()
+            data.SetColour(colour)
+            dlg2 = wx.ColourDialog(self, data)
+            if dlg2.ShowModal() == wx.ID_OK:
+                self.panel.set_language_colour(lang, dlg2.GetColourData().GetColour())
+        dlg2.Destroy()
         dlg.Destroy()
 
     def increase_font_size(self, event):
@@ -165,6 +206,9 @@ class VerbumExploratio(wx.Frame):
     def decrease_font_size(self, event):
         if self.panel.font_size > 4:
             self.panel.set_fontsize(self.panel.font_size - 2)
+
+    def save_config(self, event):
+        self.panel.save_config()
 
     def onExit(self, event):
         self.Close()

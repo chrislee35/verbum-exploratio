@@ -10,9 +10,11 @@ import wx.richtext as rt
 from .etymology import Etymology
 import re
 import string
+import json
+import os
 
 class VerbumPanel(wx.Panel):
-    COLORS_TAB20 = [ # from matplotlib
+    COLOURS_TAB20 = [ # from matplotlib
         wx.Colour(31, 119, 180, 255),
         wx.Colour(174, 199, 232, 255),
         wx.Colour(255, 127, 14, 255),
@@ -39,6 +41,7 @@ class VerbumPanel(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent)
         self.font_size = 14
+        self.custom_colours = {}
         self.current_highlight = None
 
         main_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -60,6 +63,7 @@ class VerbumPanel(wx.Panel):
         self.info = wx.TextCtrl(self, style=wx.TE_MULTILINE, size=wx.Size(400, 600))
         self.info.SetFont(font2)
         self.info.SetEditable(False)
+        self.info.SetForegroundColour(wx.WHITE)
         self.info.SetBackgroundColour(wx.BLACK)
         self.info.Bind(wx.EVT_LEFT_UP, self.info_click_handler)
 
@@ -97,10 +101,16 @@ class VerbumPanel(wx.Panel):
         if lang in self.top_related_langs:
             idx = self.top_related_langs.index(lang)
             self.top_related_langs.remove(lang)
-            clr = self.COLORS_TAB20.pop(idx)
-            self.COLORS_TAB20.append(clr)
+            clr = self.COLOURS_TAB20.pop(idx)
+            self.COLOURS_TAB20.append(clr)
             self.update_legend()
             self.update_highlighting()
+
+    def set_related_langs(self, langs: list[str]):
+        top20 = self.etymology.most_common_related_langs(reltypes=self.reltypes, count=20)
+        self.top_related_langs = [ x for x in top20 if x in langs ]
+        self.update_legend()
+        self.update_highlighting()
 
     def set_reltypes(self, reltypes: list[str]):
         self.reltypes = reltypes
@@ -108,17 +118,56 @@ class VerbumPanel(wx.Panel):
         self.update_legend()
         self.update_highlighting()
 
+    def set_language_colour(self, lang: str, colour: wx.Colour):
+        self.custom_colours[lang] = eval(str(colour))
+        self.update_legend()
+        self.update_highlighting()
+
+    def save_config(self, confpath: str = "verbum.conf"):
+        config = {
+            'font_size': self.font_size,
+            'relationships': self.reltypes,
+            'language': self.language,
+            'custom_colours': self.custom_colours,
+            'related_languages': self.top_related_langs
+        }
+        with open(confpath, "w") as fh:
+            json.dump(config, fh, indent=2)
+
+    def load_config(self, confpath: str = "verbum.conf"):
+        if os.path.exists(confpath):
+            try:
+                with open(confpath, "r") as fh:
+                    config = json.load(fh)
+                    self.font_size = config['font_size']
+                    self.reltypes = config['relationships']
+                    self.language = config['language']
+                    self.top_related_langs = config['related_languages']
+                    self.custom_colours = config['custom_colours']
+                    self.update_legend()
+                    self.update_highlighting()
+            except Exception as e:
+                print(e)
+
+    def get_language_colour(self, lang: str):
+        if lang in self.custom_colours:
+            return wx.Colour(*self.custom_colours[lang])
+        idx = self.top_related_langs.index(lang)
+        return self.COLOURS_TAB20[idx]
+
     def update_legend(self):
         self.legend.SetEditable(True)
         self.legend.SetValue("")
         for i,l in enumerate(self.top_related_langs):
-            self.legend.SetDefaultStyle(wx.TextAttr(self.COLORS_TAB20[i]))
+            colour = self.get_language_colour(l)
+            self.legend.SetDefaultStyle(wx.TextAttr(colour))
             self.legend.AppendText(l+"\n")
         self.legend.SetEditable(False)
 
     def set_text(self, text: str):
         self.text.SetValue(text)
         self.update_highlighting()
+
 
     def main_click_handler(self, event: wx.Event):
         word, pos = self.get_word_at_caret()
@@ -242,7 +291,7 @@ Common butterwort is an insectivorous plant. Its leaves have glands that excrete
                     if found: break
                     for r in rels:
                         if r['lang'] == l:
-                            colour = self.COLORS_TAB20[i]
+                            colour = self.get_language_colour(l)
                             found = True
                             break
                 self.text.SetStyle(start+offset, end+offset, wx.TextAttr(colour, font=self.default_font))
