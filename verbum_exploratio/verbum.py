@@ -7,6 +7,8 @@ Created on Fri Jun 21 23:34:29 2024
 """
 import wx
 from .verbum_panel import VerbumPanel
+from .verbum_network import VerbumNetworkFrame
+from .verbum_tree import VerbumTreeFrame
 from .wikipedia import get_wikipedia_article
 from .etymology import Etymology
 
@@ -21,6 +23,10 @@ class VerbumExploratio(wx.Frame):
 
     def create_menu(self):
         menu_bar = wx.MenuBar()
+
+        #######################
+        # FILE
+        #######################
         file_menu = wx.Menu()
         open_file_menu_item = file_menu.Append(
             wx.ID_ANY, 'Open File',
@@ -50,6 +56,9 @@ class VerbumExploratio(wx.Frame):
             source=quit_menu_item,
         )
 
+        #######################
+        # SETTINGS
+        #######################
         settings_menu = wx.Menu()
         relationship_type_menu_item = settings_menu.Append(
             wx.ID_ANY, 'Relationship Settings',
@@ -113,6 +122,16 @@ class VerbumExploratio(wx.Frame):
             handler=self.save_config,
             source=save_preferences_menu_item
         )
+
+        #######################
+        # ANALYSIS
+        #######################
+        analysis_menu = wx.Menu()
+        view_network_menu_item = analysis_menu.Append(wx.ID_ANY, 'View Network', 'Shows a graphic representation of the word relationships network.')
+        view_tree_menu_item = analysis_menu.Append(wx.ID_ANY, 'View Term Tree', 'Shows an interactive tree of the word relationships.')
+        menu_bar.Append(analysis_menu, '&Analysis')
+        self.Bind(event=wx.EVT_MENU, handler=self.view_network, source=view_network_menu_item)
+        self.Bind(event=wx.EVT_MENU, handler=self.view_tree, source=view_tree_menu_item)
 
         self.SetMenuBar(menu_bar)
 
@@ -209,6 +228,24 @@ class VerbumExploratio(wx.Frame):
 
     def save_config(self, event):
         self.panel.save_config()
+
+
+    #######################
+    # ANALYSIS
+    #######################
+    def view_network(self, event):
+        doc = self.panel.text.Value
+        lang = self.panel.language
+        reltypes = self.panel.reltypes
+        network_view = VerbumNetworkFrame(doc, lang, reltypes)
+        network_view.Show()
+
+    def view_tree(self, event):
+        doc = self.panel.text.Value
+        lang = self.panel.language
+        reltypes = self.panel.reltypes
+        tree_view = VerbumTreeFrame(doc, lang, reltypes)
+        tree_view.Show()
 
     def onExit(self, event):
         self.Close()

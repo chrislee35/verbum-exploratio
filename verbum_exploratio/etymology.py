@@ -126,8 +126,9 @@ class Etymology:
         return None
 
     def get_relationships(self, word: str, reltypes: list[str]=None, langs: list[str]=None):
-        word = self.get_base_word(word)
+        word = self.get_base_word(word) or word
         rels = self.lang.get(word, self.lang.get(word.lower()))
+        if rels is None: return []
         if reltypes:
             rels = [x for x in rels if x['type'] in reltypes]
         if langs:

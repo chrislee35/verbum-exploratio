@@ -42,6 +42,7 @@ class VerbumPanel(wx.Panel):
         super().__init__(parent)
         self.font_size = 14
         self.custom_colours = {}
+        self.highlighted_languages = []
         self.current_highlight = None
 
         main_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -60,6 +61,8 @@ class VerbumPanel(wx.Panel):
         self.text = t
         self.legend = wx.TextCtrl(self, style=wx.TE_MULTILINE, size=wx.Size(80, 600))
         self.legend.SetBackgroundColour(wx.BLACK)
+        self.legend.Bind(wx.EVT_LEFT_UP, self.legend_click_handler)
+
         self.info = wx.TextCtrl(self, style=wx.TE_MULTILINE, size=wx.Size(400, 600))
         self.info.SetFont(font2)
         self.info.SetEditable(False)
@@ -158,16 +161,22 @@ class VerbumPanel(wx.Panel):
     def update_legend(self):
         self.legend.SetEditable(True)
         self.legend.SetValue("")
+        basefont = self.legend.GetDefaultStyle().GetFont()
         for i,l in enumerate(self.top_related_langs):
             colour = self.get_language_colour(l)
-            self.legend.SetDefaultStyle(wx.TextAttr(colour))
+            font = basefont
+            if l in self.highlighted_languages:
+                font = basefont.Underlined()
             self.legend.AppendText(l+"\n")
+            ta = wx.TextAttr(colour, font=font)
+            end = len(self.legend.Value) - 1
+            start = end - len(l)
+            self.legend.SetStyle(start, end, ta)
         self.legend.SetEditable(False)
 
     def set_text(self, text: str):
         self.text.SetValue(text)
         self.update_highlighting()
-
 
     def main_click_handler(self, event: wx.Event):
         word, pos = self.get_word_at_caret()
@@ -190,6 +199,21 @@ class VerbumPanel(wx.Panel):
             self.info.AppendText(text)
             return True
         return False
+
+    def legend_click_handler(self, event: wx.Event):
+        l = self.legend
+        pos = l.GetInsertionPoint()
+        xy = l.PositionToXY(pos)
+        lang = l.GetLineText(xy[2])
+
+        if lang in self.top_related_langs:
+            if lang in self.highlighted_languages:
+                self.highlighted_languages.remove(lang)
+            else:
+                self.highlighted_languages.append(lang)
+
+        self.update_legend()
+        self.update_highlighting()
 
     def info_click_handler(self, event: wx.Event):
         i = self.info
@@ -268,8 +292,10 @@ Common butterwort is an insectivorous plant. Its leaves have glands that excrete
         words = re.split(r"[\n \-\/]", text)
         clean = re.compile(r"[^\w]", re.U) # this should match all latin unicode as well as A-Z
         clean2 = re.compile(r"\d", re.U) # this should match all latin unicode as well as A-Z
-        # Diacritical marks are so cliché.
+
         unrecognized_font = wx.Font(wx.FontInfo(self.font_size).Family(wx.FONTFAMILY_TELETYPE))
+        bold_font = self.default_font.Underlined()
+
         for word in words:
             new_end = start + len(word)
             clean_word = clean.sub('', word)
@@ -279,23 +305,29 @@ Common butterwort is an insectivorous plant. Its leaves have glands that excrete
                 word = clean_word
             except ValueError:
                 offset = 0
-            end = start + len(word) # FIXME
+            end = start + len(word)
+
+            colour = wx.Colour(64,64,64)
+            font = unrecognized_font
+
             if self.etymology.has_word(word):
                 rels = self.etymology.get_relationships(word,
                     langs=self.top_related_langs,
                     reltypes=self.reltypes
                 )
                 colour = off_white
+                font = self.default_font
                 found = False
                 for i,l in enumerate(self.top_related_langs):
                     if found: break
                     for r in rels:
                         if r['lang'] == l:
                             colour = self.get_language_colour(l)
+                            if l in self.highlighted_languages:
+                                font = bold_font
                             found = True
                             break
-                self.text.SetStyle(start+offset, end+offset, wx.TextAttr(colour, font=self.default_font))
-            else:
-                ta = wx.TextAttr(wx.Colour(64,64,64), font=unrecognized_font)
-                self.text.SetStyle(start+offset, end+offset, ta)
+
+            ta = wx.TextAttr(colour, font=font)
+            self.text.SetStyle(start+offset, end+offset, ta)
             start = new_end + 1

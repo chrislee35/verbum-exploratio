@@ -2,3 +2,5 @@ wxPython
 requests
 lxml
 spacy
+matplotlib
+networkx
