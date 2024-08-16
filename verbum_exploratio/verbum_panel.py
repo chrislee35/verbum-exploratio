@@ -127,6 +127,14 @@ class VerbumPanel(wx.Panel):
         self.update_highlighting()
 
     def save_config(self, confpath: str = "verbum.conf"):
+        """Saves the current configuration to a JSON file named verbum.conf at the specified path (confpath)
+        The configuration dictionary contains several key-value pairs:
+            font_size: the font size for rendering text
+            relationships: a list of relationships types (e.g. synonyms, antonyms)
+            language: the language code for the current text
+            related_languages: a list of related languages
+            custom_colours: a dictionary mapping language codes to custom colours
+        """
         config = {
             'font_size': self.font_size,
             'relationships': self.reltypes,
@@ -138,6 +146,14 @@ class VerbumPanel(wx.Panel):
             json.dump(config, fh, indent=2)
 
     def load_config(self, confpath: str = "verbum.conf"):
+        """Loads the configuration from the verbum.conf file
+        If the file exists, it tries to parse the JSON configuration and update the panel's properties:
+            font_size
+            relationships
+            language
+            related_languages
+            custom_colours
+        If there is an error parsing the configuration, it prints the exception message"""
         if os.path.exists(confpath):
             try:
                 with open(confpath, "r") as fh:
@@ -153,6 +169,7 @@ class VerbumPanel(wx.Panel):
                 print(e)
 
     def get_language_colour(self, lang: str):
+        """ Given a language code (lang), returns the corresponding colour: """
         if lang in self.custom_colours:
             return wx.Colour(*self.custom_colours[lang])
         idx = self.top_related_langs.index(lang)
