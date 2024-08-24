@@ -197,6 +197,7 @@ class VerbumPanel(wx.Panel):
 
     def main_click_handler(self, event: wx.Event):
         word, pos = self.get_word_at_caret()
+        if word is None: return
         if self.append_info_for_word(self.etymology, word):
             self.change_highlight(pos)
 
@@ -266,8 +267,10 @@ class VerbumPanel(wx.Panel):
     def get_word_at_caret(self) -> str:
         caret = self.text.GetCaretPosition()
         text = self.text.Value
+        if len(text) == 0: return None, None
         word = text[caret]
         c = caret - 1
+        if c < 0: c = 0
         while text[c] not in self.punctuation:
             word = text[c]+word
             if c == 0: break
