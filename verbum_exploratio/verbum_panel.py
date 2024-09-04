@@ -48,7 +48,9 @@ class VerbumPanel(wx.Panel):
         main_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         t = rt.RichTextCtrl(self,
-            style=wx.TE_MULTILINE | wx.TE_WORDWRAP, size=wx.Size(800, 600))
+            style=wx.TE_MULTILINE | wx.TE_WORDWRAP,
+            size=wx.Size(800, 600)
+        )
         font1 = wx.Font(wx.FontInfo(self.font_size).Family(wx.FONTFAMILY_MODERN))
         font2 = wx.Font(wx.FontInfo(self.font_size - 2).Family(wx.FONTFAMILY_MODERN))
         t.SetFont(font1)
@@ -70,9 +72,10 @@ class VerbumPanel(wx.Panel):
         self.info.SetBackgroundColour(wx.BLACK)
         self.info.Bind(wx.EVT_LEFT_UP, self.info_click_handler)
 
-        main_sizer.Add(self.text, 0, wx.ALL | wx.EXPAND, 5)
-        main_sizer.Add(self.legend, 0, wx.ALL | wx.TOP, 5)
-        main_sizer.Add(self.info, 0, wx.ALL | wx.TOP, 5)
+        main_sizer.Add(self.text, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        main_sizer.Add(self.legend, proportion=0, flag=wx.ALL | wx.TOP | wx.EXPAND, border=5)
+        main_sizer.Add(self.info, proportion=0, flag=wx.ALL | wx.TOP | wx.EXPAND, border=5)
+
 
         self.SetSizer(main_sizer)
 
